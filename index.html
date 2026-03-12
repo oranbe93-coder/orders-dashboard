@@ -225,6 +225,22 @@ tr.row-red:hover{background:rgba(220,38,38,0.09);}
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1f36;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:400;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* USERNAME MODAL */
+.username-ov{display:none;position:fixed;inset:0;background:rgba(26,31,54,0.6);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+.username-ov.open{display:flex;}
+.username-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:360px;max-width:95vw;box-shadow:0 24px 64px rgba(26,31,54,0.22);text-align:center;}
+.username-box .ulogo{font-size:40px;margin-bottom:16px;}
+.username-box h2{font-size:20px;font-weight:900;margin-bottom:6px;}
+.username-box p{font-size:13px;color:var(--text-dim);margin-bottom:22px;}
+.username-box input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:'Heebo',sans-serif;font-size:15px;font-weight:700;outline:none;text-align:center;transition:border-color .15s;margin-bottom:14px;}
+.username-box input:focus{border-color:var(--accent);background:#fff;}
+.username-box .usubmit{width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;font-family:'Heebo',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
+/* AUDIT */
+.audit{font-size:10px;color:var(--text-dim);margin-top:3px;display:flex;align-items:center;gap:4px;}
+.audit-name{font-weight:700;color:var(--accent);}
+/* USER BADGE */
+.user-badge{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--text-mid);}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:800;}
 </style>
 </head>
 <body>
@@ -239,6 +255,10 @@ tr.row-red:hover{background:rgba(220,38,38,0.09);}
   </div>
   <div class="header-right">
     <div class="sync-label"><span class="sync-dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
+    <div class="user-badge" id="userBadge" onclick="changeUsername()" title="לחץ לשינוי שם">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userNameDisplay">לא מזוהה</span>
+    </div>
     <button class="session-btn" onclick="openSessionModal()">📂 טען יום קיים</button>
     <div class="pill" id="sheetPill">טרם נטען קובץ</div>
     <button class="import-btn" onclick="document.getElementById('fileInput').click()">📥 ייבוא קובץ אקסל</button>
@@ -306,11 +326,25 @@ tr.row-red:hover{background:rgba(220,38,38,0.09);}
   </div>
 </div>
 
+
+<!-- USERNAME MODAL -->
+<div class="username-ov" id="usernameModal">
+  <div class="username-box">
+    <div class="ulogo">👤</div>
+    <h2>מי אתה?</h2>
+    <p>הזן את שמך כדי שנדע מי עדכן כל לקוח</p>
+    <input type="text" id="usernameInp" placeholder="שם פרטי (למשל: דוד)" maxlength="20">
+    <button class="usubmit" onclick="saveUsername()">כניסה לדשבורד ←</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+
 
 <script>
 // ── STATE ──────────────────────────────────────────────────────
 let days=[], regions={}, currentDay='', activeFilter='all', nextId=1;
+let currentUser = localStorage.getItem('dashboardUser') || '';
 let currentDateKey='';  // e.g. "2024-01-15"
 let fbReady=false;
 let _unsubscribe=null;
@@ -329,7 +363,35 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('todayDate').textContent =
     new Date().toLocaleDateString('he-IL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   showMainEmpty();
+  if(!currentUser) {
+    document.getElementById('usernameModal').classList.add('open');
+  } else {
+    updateUserBadge(currentUser);
+  }
+  // Allow Enter key in username input
+  document.getElementById('usernameInp').addEventListener('keydown', e => {
+    if(e.key === 'Enter') saveUsername();
+  });
 });
+
+function saveUsername(){
+  const name = document.getElementById('usernameInp').value.trim();
+  if(!name){ alert('נא להזין שם'); return; }
+  currentUser = name;
+  localStorage.setItem('dashboardUser', name);
+  document.getElementById('usernameModal').classList.remove('open');
+  updateUserBadge(name);
+  showToast('ברוך הבא ' + name + '! 👋');
+}
+function changeUsername(){
+  document.getElementById('usernameInp').value = currentUser;
+  document.getElementById('usernameModal').classList.add('open');
+  setTimeout(()=>document.getElementById('usernameInp').focus(), 100);
+}
+function updateUserBadge(name){
+  document.getElementById('userNameDisplay').textContent = name;
+  document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+}
 
 function showMainEmpty(){
   document.getElementById('regionsContainer').innerHTML=`
@@ -561,6 +623,7 @@ function renderDay(){
                 <td>
                   <div class="c-name">${esc(c.name)}</div>
                   ${c.origNote?`<div class="c-orig">📌 ${esc(c.origNote)}</div>`:''}
+                  ${c.lastEditedBy?`<div class="audit">✏️ <span class="audit-name">${esc(c.lastEditedBy)}</span> · <span class="audit-time">${esc(c.lastEditedAt||'')}</span></div>`:''}
                 </td>
                 <td><div class="c-phone">${esc(c.phone||'—')}</div></td>
                 <td>
@@ -621,11 +684,16 @@ function findRegion(regionKey){
 function setStatus(regionKey, custId, status){
   const region=findRegion(regionKey);
   if(!region||!region.customers[custId]) return;
-  region.customers[custId].status=status;
-  // Push to Firebase with correct path
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  region.customers[custId].status = status;
+  region.customers[custId].lastEditedBy = currentUser || 'לא ידוע';
+  region.customers[custId].lastEditedAt = timeStr;
   if(fbReady && currentDateKey){
     const dayKey=getDayForRegion(regionKey);
     window._fb.updateCustomer(currentDateKey, dayKey, regionKey, custId, 'status', status);
+    window._fb.updateCustomer(currentDateKey, dayKey, regionKey, custId, 'lastEditedBy', currentUser || 'לא ידוע');
+    window._fb.updateCustomer(currentDateKey, dayKey, regionKey, custId, 'lastEditedAt', timeStr);
   }
   renderDay(); refreshStats();
 }
