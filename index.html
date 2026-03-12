@@ -30,16 +30,16 @@
     saveAll: (dateKey, data) => {
       return set(ref(db, 'sessions/' + dateKey), data);
     },
-    // Update a single customer field (status or note)
-    updateCustomer: (dateKey, regionKey, custId, field, value) => {
-      const path = `sessions/${dateKey}/${regionKey}/${custId}/${field}`;
-      return update(ref(db, `sessions/${dateKey}/${regionKey}/${custId}`), { [field]: value });
+    // Update a single customer field (status or note) - FIXED PATH
+    updateCustomer: (dateKey, dayKey, regionKey, custId, field, value) => {
+      const path = `sessions/${dateKey}/${dayKey}/regions/${regionKey}/customers/${custId}`;
+      return update(ref(db, path), { [field]: value });
     },
-    // Listen for real-time changes
+    // Listen for real-time changes on a session
     listen: (dateKey, callback) => {
       const r = ref(db, 'sessions/' + dateKey);
-      onValue(r, snap => callback(snap.val()));
-      return r;
+      const unsub = onValue(r, snap => callback(snap.val()));
+      return unsub;
     },
     // List all saved sessions (dates)
     listSessions: (callback) => {
@@ -47,10 +47,6 @@
         const val = snap.val();
         callback(val ? Object.keys(val) : []);
       }, { onlyOnce: true });
-    },
-    // Load a session
-    loadSession: (dateKey, callback) => {
-      onValue(ref(db, 'sessions/' + dateKey), snap => callback(snap.val()), { onlyOnce: true });
     }
   };
 
@@ -626,10 +622,10 @@ function setStatus(regionKey, custId, status){
   const region=findRegion(regionKey);
   if(!region||!region.customers[custId]) return;
   region.customers[custId].status=status;
-  // Push to Firebase
+  // Push to Firebase with correct path
   if(fbReady && currentDateKey){
     const dayKey=getDayForRegion(regionKey);
-    window._fb.updateCustomer(currentDateKey, `${dayKey}/regions/${regionKey}/customers/${custId}`, null, 'status', status);
+    window._fb.updateCustomer(currentDateKey, dayKey, regionKey, custId, 'status', status);
   }
   renderDay(); refreshStats();
 }
@@ -640,7 +636,7 @@ function setNote(regionKey, custId, note){
   region.customers[custId].note=note;
   if(fbReady && currentDateKey){
     const dayKey=getDayForRegion(regionKey);
-    window._fb.updateCustomer(currentDateKey, `${dayKey}/regions/${regionKey}/customers/${custId}`, null, 'note', note);
+    window._fb.updateCustomer(currentDateKey, dayKey, regionKey, custId, 'note', note);
   }
 }
 
